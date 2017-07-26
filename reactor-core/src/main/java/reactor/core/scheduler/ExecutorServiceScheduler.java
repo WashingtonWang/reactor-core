@@ -16,9 +16,7 @@
 
 package reactor.core.scheduler;
 
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.RejectedExecutionException;
@@ -141,7 +139,7 @@ final class ExecutorServiceScheduler implements Scheduler {
 		}
 	}
 
-	static final class ExecutorServiceWorker implements Worker, DisposableContainer<ExecutorServiceSchedulerRunnable> {
+	static final class ExecutorServiceWorker implements Worker, CompositeDisposable<ExecutorServiceSchedulerRunnable> {
 
 		final ExecutorService executor;
 		final boolean         interruptOnCancel;
@@ -246,6 +244,27 @@ final class ExecutorServiceScheduler implements Scheduler {
 				}
 			}
 			return false;
+		}
+
+		@Override
+		public void clear() {
+			if (!terminated) {
+				OpenHashSet<ExecutorServiceSchedulerRunnable> coll;
+				synchronized (this) {
+					if (terminated) {
+						return;
+					}
+					coll = tasks;
+					tasks = new OpenHashSet<>();
+				}
+
+				coll.clear(Disposable::dispose);
+			}
+		}
+
+		@Override
+		public int size() {
+			return tasks.size();
 		}
 
 		@Override
