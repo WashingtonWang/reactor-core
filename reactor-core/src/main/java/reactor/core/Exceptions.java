@@ -57,6 +57,7 @@ public abstract class Exceptions {
 	 *
 	 * @return true if added, false if the field contained the {@link #TERMINATED}
 	 * instance.
+	 * @see #unwrapMultiple(Throwable)
 	 */
 	public static <T> boolean addThrowable(AtomicReferenceFieldUpdater<T, Throwable> field,
 			T instance,
@@ -68,11 +69,15 @@ public abstract class Exceptions {
 				return false;
 			}
 
+			if (current instanceof CompositeException) {
+				current.addSuppressed(exception);
+				return true;
+			}
+
 			Throwable update;
 			if (current == null) {
 				update = exception;
-			}
-			else {
+			} else {
 				update = multiple(current, exception);
 			}
 
