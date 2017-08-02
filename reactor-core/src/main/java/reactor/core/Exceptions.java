@@ -16,6 +16,9 @@
 
 package reactor.core;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.annotation.Nullable;
@@ -80,7 +83,7 @@ public abstract class Exceptions {
 	}
 
 	public static RuntimeException multiple(Throwable... throwables) {
-		RuntimeException multiple = new RuntimeException("Multiple exceptions");
+		CompositeException multiple = new CompositeException();
 		//noinspection ConstantConditions
 		if (throwables != null) {
 			for (Throwable t : throwables) {
@@ -213,6 +216,40 @@ public abstract class Exceptions {
 	}
 
 	/**
+	 * Check a {@link Throwable} to see if it is a composite, as created by {@link #multiple(Throwable...)}.
+	 *
+	 * @param t the {@link Throwable} to check, {@literal null} always yields {@literal false}
+	 * @return true if the Throwable is an instance created by {@link #multiple(Throwable...)}, false otherwise
+	 */
+	public static boolean isMultiple(@Nullable Throwable t) {
+		return t instanceof CompositeException;
+	}
+
+	/**
+	 * Attempt to unwrap a {@link Throwable} into a {@link List} of Throwables. This is
+	 * only done on the condition that said Throwable is a composite exception built by
+	 * {@link #multiple(Throwable...)}, in which case the list contains the exceptions
+	 * wrapped as suppressed exceptions in the composite. In any other case, the list
+	 * only contains the input Throwable (or is empty in case of null input).
+	 *
+	 * @param potentialMultiple the {@link Throwable} to unwrap if multiple
+	 * @return a {@link List} of the exceptions suppressed by the {@link Throwable} if
+	 * multiple, or a List containing the Throwable otherwise. Null input results in an
+	 * empty List.
+	 */
+	public static List<Throwable> unwrapMultiple(@Nullable Throwable potentialMultiple) {
+		if (potentialMultiple == null) {
+			return Collections.emptyList();
+		}
+
+		if (isMultiple(potentialMultiple)) {
+			return Arrays.asList(potentialMultiple.getSuppressed());
+		}
+
+		return Collections.singletonList(potentialMultiple);
+	}
+
+	/**
 	 * @param elements the invalid requested demand
 	 *
 	 * @return a new {@link IllegalArgumentException} with a cause message abiding to
@@ -316,6 +353,15 @@ public abstract class Exceptions {
 	}
 
 	Exceptions() {
+	}
+
+	static class CompositeException extends ReactiveException {
+
+		CompositeException() {
+			super("Multiple exceptions");
+		}
+
+		private static final long serialVersionUID = 8070744939537687606L;
 	}
 
 	static class BubblingException extends ReactiveException {
